@@ -8,6 +8,7 @@
 - 一键整体逆序 (ReverseTracksCommand)
 - 截断到当前行（保留选中行及之前，删除其后）
 - 批量翻转「歌手 - 歌名」↔「歌名 - 歌手」（#EXTINF 与路径行同步）
+- 仅交换歌手与歌名字段（不修改显示名与源文件路径）
 - 相对/绝对路径批量互转
 - 从实际文件刷新时长、音质与标签
 - 一键去重（按归一化路径与显示名）
@@ -479,6 +480,34 @@ class FlipArtistTitleCommand(BasePlaylistCommand):
                 track.path = new_path
                 track.refresh_file_stats(base_dir)
                 self.flipped_count += 1
+
+
+class SwapArtistTitleFieldsCommand(BasePlaylistCommand):
+    """仅交换歌手与歌名字段，不修改显示名、源文件路径或文件状态。"""
+
+    def __init__(
+        self,
+        doc: PlaylistDocument,
+        row_indices: Optional[List[int]] = None,
+        on_changed: Optional[Callable[[], None]] = None,
+    ) -> None:
+        target_rows = row_indices if row_indices else list(range(len(doc.tracks)))
+        super().__init__(
+            doc, f"仅翻转歌手与歌名字段 ({len(target_rows)} 首)", on_changed
+        )
+        self.row_set = set(target_rows)
+        self.swapped_count = 0
+
+    def _apply_change(self) -> None:
+        for i, track in enumerate(self.doc.tracks):
+            if i not in self.row_set:
+                continue
+            new_artist, new_title, _, _ = flip_track_artist_title(track)
+            if new_artist == track.artist and new_title == track.title:
+                continue
+            track.artist = new_artist
+            track.title = new_title
+            self.swapped_count += 1
 
 
 class ConvertPathsCommand(BasePlaylistCommand):

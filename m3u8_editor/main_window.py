@@ -53,11 +53,11 @@ from .commands import (
     DeduplicateCommand,
     EditPlaylistTitleCommand,
     EditTrackFieldCommand,
-    FlipArtistTitleCommand,
     MoveTracksCommand,
     RemoveTracksCommand,
     ReverseTracksCommand,
     SortTracksCommand,
+    SwapArtistTitleFieldsCommand,
     SyncAudioMetaCommand,
     TruncateTracksCommand,
     detect_duplicate_tracks,
@@ -348,8 +348,10 @@ class MainWindow(QMainWindow):
         self.act_deduplicate = QAction("一键去重 (按路径与显示名)", self)
         self.act_deduplicate.setIconText("一键去重")
 
-        self.act_flip_artist_title = QAction("批量翻转「歌手 - 歌名」↔「歌名 - 歌手」", self)
-        self.act_flip_artist_title.setIconText("翻转歌手/歌名")
+        self.act_flip_artist_title = QAction(
+            "仅翻转歌手/歌名（不改显示名和源文件名）", self
+        )
+        self.act_flip_artist_title.setIconText("仅翻转歌手/歌名")
 
         self.act_to_relative = QAction("全部转为相对路径 (默认)", self)
         self.act_to_absolute = QAction("全部转为绝对路径", self)
@@ -1078,25 +1080,24 @@ class MainWindow(QMainWindow):
         scope_str = f"选中的 {len(rows)} 首曲目" if rows else f"全部 {len(self.doc.tracks)} 首曲目"
         if not ask_yes_no_box(
             self,
-            "批量翻转「歌手 - 歌名」",
-            f"确定要对{scope_str}执行「歌手 - 歌名」↔「歌名 - 歌手」翻转吗？\n"
-            "（将同步翻转 #EXTINF 显示名与路径行中的文件名）",
+            "仅翻转歌手/歌名字段",
+            f"确定要对{scope_str}交换歌手和歌名两列吗？\n"
+            "（显示名、源文件名、文件路径和音质信息均不会改变）",
             yes_text="确定翻转",
             no_text="取消",
         ):
             return
 
-        cmd = FlipArtistTitleCommand(
+        cmd = SwapArtistTitleFieldsCommand(
             self.doc,
             row_indices=rows if rows else None,
-            rename_disk_files=False,
             on_changed=self.refresh_ui_state,
         )
         self.undo_stack.push(cmd)
         show_info_box(
             self,
-            "翻转完成",
-            f"已成功翻转 {cmd.flipped_count} 首曲目的「歌手 - 歌名」与对应路径行（可按 Ctrl+Z 撤销）。",
+            "歌手/歌名翻转完成",
+            f"已交换 {cmd.swapped_count} 首曲目的歌手和歌名字段，显示名与源文件名未改变（可按 Ctrl+Z 撤销）。",
         )
 
     def action_convert_paths(self, to_relative: bool) -> None:

@@ -15,6 +15,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import List, Optional, Tuple
+from urllib.parse import quote, unquote
 
 from .models import (
     PlaylistDocument,
@@ -37,6 +38,38 @@ GLOBAL_HEADER_TAG_PREFIXES = (
     "#EXT-X-MEDIA-SEQUENCE",
     "#EXT-X-PLAYLIST-TYPE",
 )
+
+# 编辑器私有字段标签：播放器可忽略，编辑器用于持久化与显示名不同的歌手/歌名字段。
+EDITOR_ARTIST_TAG_PREFIX = "#M3U8EDITOR:ARTIST="
+EDITOR_TITLE_TAG_PREFIX = "#M3U8EDITOR:TITLE="
+
+
+def _parse_editor_field_overrides(
+    tags: List[str],
+) -> Tuple[Optional[str], Optional[str], List[str]]:
+    """读取并移除编辑器私有字段标签，返回 (歌手, 歌名, 其他标签)。"""
+    artist_override: Optional[str] = None
+    title_override: Optional[str] = None
+    preserved_tags: List[str] = []
+    for tag in tags:
+        if tag.startswith(EDITOR_ARTIST_TAG_PREFIX):
+            artist_override = unquote(tag[len(EDITOR_ARTIST_TAG_PREFIX):])
+        elif tag.startswith(EDITOR_TITLE_TAG_PREFIX):
+            title_override = unquote(tag[len(EDITOR_TITLE_TAG_PREFIX):])
+        else:
+            preserved_tags.append(tag)
+    return artist_override, title_override, preserved_tags
+
+
+def _editor_field_override_tags(track: TrackItem) -> List[str]:
+    """当字段与显示名推导结果不同时生成私有持久化标签。"""
+    inferred_artist, inferred_title = split_artist_title(track.display_name)
+    if (track.artist, track.title) == (inferred_artist, inferred_title):
+        return []
+    return [
+        f"{EDITOR_ARTIST_TAG_PREFIX}{quote(track.artist, safe='')}",
+        f"{EDITOR_TITLE_TAG_PREFIX}{quote(track.title, safe='')}",
+    ]
 
 
 def _refresh_track_file_and_quality(track: TrackItem, base_dir: Optional[str]) -> None:
@@ -155,6 +188,13 @@ def parse_m3u8_text(
             duration = -1
 
         artist, title = split_artist_title(display_name)
+        artist_override, title_override, preserved_tags = _parse_editor_field_overrides(
+            pending_extra_tags
+        )
+        if artist_override is not None:
+            artist = artist_override
+        if title_override is not None:
+            title = title_override
         item = TrackItem(
             path=track_path,
             duration=duration,
@@ -162,7 +202,7 @@ def parse_m3u8_text(
             artist=artist,
             title=title,
             has_extinf=has_extinf,
-            extra_tags=list(pending_extra_tags),
+            extra_tags=preserved_tags,
         )
         doc.tracks.append(item)
 
@@ -209,7 +249,10 @@ def serialize_m3u8(doc: PlaylistDocument) -> str:
         out_lines.append(h_line)
 
     for track in doc.tracks:
+        out_lines.extend(_editor_field_override_tags(track))
         for ext_tag in track.extra_tags:
+            if ext_tag.startswith((EDITOR_ARTIST_TAG_PREFIX, EDITOR_TITLE_TAG_PREFIX)):
+                continue
             out_lines.append(ext_tag)
         display = track.display_name or compose_display_name(track.artist, track.title)
         if not display:
