@@ -35,6 +35,9 @@
   - 矩形控件风格，无圆角残留。
   - 支持 Windows 125%～200% 等高 DPI 缩放。
   - 双击非编辑列可使用系统默认播放器试听。
+ 
+<img width="1280" height="684" alt="PixPin_2026-11-14_22-43-23" src="https://github.com/user-attachments/assets/d200fb1c-26b5-446e-9845-44aac283024e" />
+
 
 ## 支持的音频格式
 
