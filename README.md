@@ -36,6 +36,9 @@
   - 支持 Windows 125%～200% 等高 DPI 缩放。
   - 双击非编辑列可使用系统默认播放器试听。
 
+<img width="2560" height="1368" alt="image" src="https://github.com/user-attachments/assets/4a7fd480-b1b9-425e-b072-ab97a72a6d05" />
+
+
 ## 支持的音频格式
 
 `.flac`、`.mp3`、`.m4a`、`.wav`、`.ape`、`.ogg`、`.aac`、`.opus`、`.wma`
